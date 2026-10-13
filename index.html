@@ -1655,6 +1655,22 @@ function validarFeedback() {
   document.getElementById('feedback-btn-enviar').disabled = !valid;
 }
 
+function getOrCreateDisc360RequestId(scope, seed) {
+  const safeScope = String(scope || 'default').replace(/[^a-zA-Z0-9_-]/g, '_');
+  const safeSeed = String(seed || 'anon').trim().toLowerCase().replace(/[^a-zA-Z0-9@._-]/g, '_').slice(0, 120) || 'anon';
+  const storageKey = 'disc360_request_' + safeScope + '_' + safeSeed;
+  try {
+    const existing = localStorage.getItem(storageKey);
+    if (existing && /^[a-zA-Z0-9_-]{20,100}$/.test(existing)) return existing;
+  } catch (e) {}
+  const randomPart = (window.crypto && crypto.getRandomValues)
+    ? Array.from(crypto.getRandomValues(new Uint32Array(4))).map(n => n.toString(36)).join('')
+    : Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const requestId = ('disc360_' + safeScope + '_' + Date.now().toString(36) + '_' + randomPart).slice(0, 100);
+  try { localStorage.setItem(storageKey, requestId); } catch (e) {}
+  return requestId;
+}
+
 /* ═══════════════════════════════════════════════════════════════
    📤 ENVIO FINAL DA AVALIAÇÃO — agora compatível com o backend
    ═══════════════════════════════════════════════════════════════ */
@@ -1672,6 +1688,7 @@ async function enviarAvaliacao() {
   /* ✅ Payload no formato EXATO esperado pelo backend (handleSubmitConvidado) */
   const payload = {
     action: 'submitConvidado',
+    requestId: getOrCreateDisc360RequestId('submitConvidado', ((avaliadoData.codigo || CODIGO_PARAM || '') + '_' + (avaliadoData.sessionId || '') + '_' + relacaoSelecionada)),
     clientVersion: APP_CLIENT_VERSION,
     // 🆕 Envia o Código 360° (DISC-XXXXX) — backend prioriza este sobre sessionId/pin
     codigo: (avaliadoData.codigo || CODIGO_PARAM || '').toUpperCase(),
